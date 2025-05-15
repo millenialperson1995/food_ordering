@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
-import { NOME_LANCHONETE, POCKETBASE_URL, COLLECTION_NAME } from '../config';
+import { POCKETBASE_URL, COLLECTION_NAME } from '../config';
 
 const AppContext = createContext();
 
