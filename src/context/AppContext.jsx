@@ -59,13 +59,13 @@ export function AppProvider({ children }) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, []); // Adicionado useCallback
 
     useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);
 
-    const parseProductOptions = (optionsField) => {
+    const parseProductOptions = useCallback((optionsField) => { // Adicionado useCallback
         if (typeof optionsField === 'string') {
             try {
                 const parsed = JSON.parse(optionsField);
@@ -75,9 +75,23 @@ export function AppProvider({ children }) {
             return optionsField;
         }
         return [];
-    };
+    }, []);
 
-    const addToCart = (product, quantity, selectedOptionsDetails) => {
+    const showToast = useCallback((message) => { // Adicionado useCallback
+        const toastId = `toast-${Date.now()}`;
+        const toastEl = document.createElement('div');
+        toastEl.id = toastId;
+        toastEl.className = 'fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg text-sm z-[1000] opacity-0 transition-opacity duration-300';
+        toastEl.textContent = message;
+        document.body.appendChild(toastEl);
+        setTimeout(() => { toastEl.style.opacity = '1'; }, 10);
+        setTimeout(() => {
+            toastEl.style.opacity = '0';
+            setTimeout(() => { toastEl.remove(); }, 300);
+        }, 3000);
+    }, []);
+
+    const addToCart = useCallback((product, quantity, selectedOptionsDetails) => { // Adicionado useCallback
         const optionsString = selectedOptionsDetails.map(opt => `${opt.name}: ${opt.value}`).sort().join('; ');
         const cartItemId = `${product.id}-${optionsString}`;
         
@@ -103,49 +117,37 @@ export function AppProvider({ children }) {
             }
         });
         showToast(`${product.name} adicionado ao carrinho!`);
-    };
+    }, [showToast]); // Dependência showToast adicionada
 
-    const updateCartItemQuantity = (cartItemId, change) => {
+    const updateCartItemQuantity = useCallback((cartItemId, change) => { // Adicionado useCallback
         setCart(prevCart => prevCart.map(item =>
             item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item
         ).filter(item => item.quantity > 0));
-    };
+    }, []);
 
-    const removeCartItem = (cartItemId) => {
+    const removeCartItem = useCallback((cartItemId) => { // Adicionado useCallback
         setCart(prevCart => prevCart.filter(item => item.cartItemId !== cartItemId));
-    };
+    }, []);
 
-    const clearCart = () => {
+    const clearCart = useCallback(() => { // Adicionado useCallback
         setCart([]);
-    }
+    }, []);
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     // Funções para controlar modais
-    const openProductModal = (product) => setSelectedProduct(product);
-    const closeProductModal = () => setSelectedProduct(null);
-    const openCartModal = () => setIsCartModalOpen(true);
-    const closeCartModal = () => setIsCartModalOpen(false);
-    const openCheckoutModal = () => {
+    const openProductModal = useCallback((product) => setSelectedProduct(product), []); // Adicionado useCallback
+    const closeProductModal = useCallback(() => setSelectedProduct(null), []); // Adicionado useCallback
+    const openCartModal = useCallback(() => setIsCartModalOpen(true), []); // Adicionado useCallback
+    const closeCartModal = useCallback(() => setIsCartModalOpen(false), []); // Adicionado useCallback
+    
+    const openCheckoutModal = useCallback(() => { // Adicionado useCallback
         setIsCartModalOpen(false);
         setIsCheckoutModalOpen(true);
-    };
-    const closeCheckoutModal = () => setIsCheckoutModalOpen(false);
-
-    const showToast = (message) => {
-        const toastId = `toast-${Date.now()}`;
-        const toastEl = document.createElement('div');
-        toastEl.id = toastId;
-        toastEl.className = 'fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg text-sm z-[1000] opacity-0 transition-opacity duration-300';
-        toastEl.textContent = message;
-        document.body.appendChild(toastEl);
-        setTimeout(() => { toastEl.style.opacity = '1'; }, 10);
-        setTimeout(() => {
-            toastEl.style.opacity = '0';
-            setTimeout(() => { toastEl.remove(); }, 300);
-        }, 3000);
-    };
+    }, []);
+    const closeCheckoutModal = useCallback(() => setIsCheckoutModalOpen(false), []); // Adicionado useCallback
+    
 
     return (
         <AppContext.Provider value={{

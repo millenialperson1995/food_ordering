@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FaWhatsapp } from 'react-icons/fa';
+import React, { useState, useCallback, useEffect } from 'react'; // Adicionado useCallback, useEffect
+import { FaWhatsapp, FaTimes } from 'react-icons/fa'; // Importado FaTimes
 import { useAppContext } from '../../context/AppContext';
 import { NOME_LANCHONETE, NUMERO_WHATSAPP } from '../../config';
 
@@ -9,6 +9,31 @@ export function CheckoutModal() {
         clientName: '', street: '', number: '', complement: '', neighborhood: '', paymentMethod: '', troco: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Função para fechar o modal ao clicar no overlay
+    const handleOverlayClick = useCallback((e) => {
+        if (e.target === e.currentTarget && !isSubmitting) { // Não fechar se estiver submetendo
+            closeCheckoutModal();
+        }
+    }, [closeCheckoutModal, isSubmitting]);
+
+    // Efeito para adicionar/remover event listener para a tecla 'Escape'
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isSubmitting) { // Não fechar se estiver submetendo
+                closeCheckoutModal();
+            }
+        };
+
+        if (isCheckoutModalOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isCheckoutModalOpen, closeCheckoutModal, isSubmitting]);
+
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -67,40 +92,52 @@ ${itemsListText}
     if (!isCheckoutModalOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[700] modal">
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[700] modal"
+            onClick={handleOverlayClick} // Adicionado manipulador de clique no overlay
+        >
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg mx-auto modal-content transform scale-100">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-2xl font-semibold text-[#E71D36]">Finalizar Pedido</h3>
-                    <button onClick={closeCheckoutModal} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    {/* Botão 'X' Estilizado */}
+                    <button
+                        onClick={() => !isSubmitting && closeCheckoutModal()} // Não fechar se estiver submetendo
+                        disabled={isSubmitting}
+                        className={`p-2 rounded-full hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 ${isSubmitting ? 'cursor-not-allowed opacity-50' : ''}`}
+                        aria-label="Fechar modal de checkout"
+                    >
+                        <FaTimes size={20} />
+                    </button>
                 </div>
                 <form onSubmit={handleSubmit}>
+                    {/* ... restante do formulário ... */}
                     <div className="mb-4">
                         <label htmlFor="client-name" className="block text-sm font-medium text-gray-700 mb-1">Nome Completo*</label>
-                        <input type="text" id="client-name" name="clientName" value={formData.clientName} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required />
+                        <input type="text" id="client-name" name="clientName" value={formData.clientName} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required disabled={isSubmitting} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-1">Rua/Avenida*</label>
-                            <input type="text" id="street" name="street" value={formData.street} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required />
+                            <input type="text" id="street" name="street" value={formData.street} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required disabled={isSubmitting} />
                         </div>
                         <div>
                             <label htmlFor="number" className="block text-sm font-medium text-gray-700 mb-1">Número*</label>
-                            <input type="text" id="number" name="number" value={formData.number} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required />
+                            <input type="text" id="number" name="number" value={formData.number} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required disabled={isSubmitting} />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label htmlFor="complement" className="block text-sm font-medium text-gray-700 mb-1">Complemento</label>
-                            <input type="text" id="complement" name="complement" value={formData.complement} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" />
+                            <input type="text" id="complement" name="complement" value={formData.complement} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" disabled={isSubmitting} />
                         </div>
                         <div>
                             <label htmlFor="neighborhood" className="block text-sm font-medium text-gray-700 mb-1">Bairro*</label>
-                            <input type="text" id="neighborhood" name="neighborhood" value={formData.neighborhood} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required />
+                            <input type="text" id="neighborhood" name="neighborhood" value={formData.neighborhood} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required disabled={isSubmitting} />
                         </div>
                     </div>
                     <div className="mb-4">
                         <label htmlFor="payment-method" className="block text-sm font-medium text-gray-700 mb-1">Método de Pagamento*</label>
-                        <select id="payment-method" name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required>
+                        <select id="payment-method" name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" required disabled={isSubmitting}>
                             <option value="">Selecione...</option>
                             <option value="Cartão de Crédito">Cartão de Crédito</option>
                             <option value="Cartão de Débito">Cartão de Débito</option>
@@ -111,11 +148,11 @@ ${itemsListText}
                     {formData.paymentMethod === 'Dinheiro' && (
                         <div className="mb-4">
                             <label htmlFor="troco" className="block text-sm font-medium text-gray-700 mb-1">Precisa de troco para quanto?</label>
-                            <input type="number" id="troco" name="troco" value={formData.troco} onChange={handleChange} placeholder="Ex: 50" className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" />
+                            <input type="number" id="troco" name="troco" value={formData.troco} onChange={handleChange} placeholder="Ex: 50" className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" disabled={isSubmitting} />
                         </div>
                     )}
-                    <button 
-                        type="submit" 
+                    <button
+                        type="submit"
                         disabled={isSubmitting}
                         className="w-full bg-[#2ECC71] text-white font-semibold py-3 rounded-lg hover:bg-green-600 transition duration-300 whatsapp-btn disabled:opacity-70"
                     >

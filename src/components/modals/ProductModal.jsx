@@ -1,11 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Adicionado useCallback
 import { useAppContext } from '../../context/AppContext';
+import { FaMinus, FaPlus, FaTimes } from 'react-icons/fa'; // Importado FaTimes
 
 export function ProductModal() {
     const { selectedProduct, closeProductModal, addToCart } = useAppContext();
     const [quantity, setQuantity] = useState(1);
     const [currentOptions, setCurrentOptions] = useState([]);
     const [totalPrice, setTotalPrice] = useState(0);
+
+    // Função para fechar o modal ao clicar no overlay
+    const handleOverlayClick = useCallback((e) => {
+        if (e.target === e.currentTarget) {
+            closeProductModal();
+        }
+    }, [closeProductModal]);
+
+    // Efeito para adicionar/remover event listener para a tecla 'Escape'
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                closeProductModal();
+            }
+        };
+
+        if (selectedProduct) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [selectedProduct, closeProductModal]);
+
 
     useEffect(() => {
         if (selectedProduct) {
@@ -18,7 +44,13 @@ export function ProductModal() {
             setCurrentOptions(initialOpts);
         }
     }, [selectedProduct]);
-    
+
+    const extractPriceChange = useCallback((optionValueString) => { // Envolvido com useCallback
+        if (typeof optionValueString !== 'string') return 0;
+        const match = optionValueString.match(/\(\+R\$([\d,.]+)\)/);
+        return match ? parseFloat(match[1].replace(',', '.')) : 0;
+    }, []);
+
     useEffect(() => {
         if (selectedProduct) {
             let price = selectedProduct.price;
@@ -31,7 +63,8 @@ export function ProductModal() {
             });
             setTotalPrice(price * quantity);
         }
-    }, [selectedProduct, quantity, currentOptions]);
+    }, [selectedProduct, quantity, currentOptions, extractPriceChange]);
+
 
     const handleOptionChange = (optionName, optionType, value, isChecked) => {
         setCurrentOptions(prevOpts =>
@@ -49,12 +82,6 @@ export function ProductModal() {
                 return opt;
             })
         );
-    };
-    
-    const extractPriceChange = (optionValueString) => {
-        if (typeof optionValueString !== 'string') return 0;
-        const match = optionValueString.match(/\(\+R\$([\d,.]+)\)/);
-        return match ? parseFloat(match[1].replace(',', '.')) : 0;
     };
 
     if (!selectedProduct) return null;
@@ -75,16 +102,27 @@ export function ProductModal() {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[500] modal">
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[500] modal"
+            onClick={handleOverlayClick} // Adicionado manipulador de clique no overlay
+        >
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto modal-content transform scale-100">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-2xl font-semibold text-[#E71D36]">{selectedProduct.name}</h3>
-                    <button onClick={closeProductModal} className="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    {/* Botão 'X' Estilizado */}
+                    <button
+                        onClick={closeProductModal}
+                        className="p-2 rounded-full hover:bg-gray-200 transition-colors text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                        aria-label="Fechar modal do produto"
+                    >
+                        <FaTimes size={20} />
+                    </button>
                 </div>
-                <img 
-                    src={selectedProduct.image} 
-                    alt={selectedProduct.name} 
+                <img
+                    src={selectedProduct.image}
+                    alt={selectedProduct.name}
                     className="w-full h-48 object-cover rounded-md mb-4"
+                    loading="lazy"
                     onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/cccccc/FFFFFF?text=Imagem Indisponível&font=Inter'; }}
                 />
                 <p className="text-gray-600 mb-4 text-sm">{selectedProduct.description}</p>
@@ -105,7 +143,7 @@ export function ProductModal() {
                                     </div>
                                 ))}
                                 {option.type === 'select' && (
-                                    <select 
+                                    <select
                                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                                         value={currentOptions.find(o => o.name === option.name)?.value || option.default}
                                         onChange={(e) => handleOptionChange(option.name, option.type, e.target.value)}
@@ -135,19 +173,33 @@ export function ProductModal() {
                         ))}
                     </div>
                 )}
-                {!selectedProduct.options || selectedProduct.options.length === 0 && (
+                {(!selectedProduct.options || selectedProduct.options.length === 0) && (
                     <p className="text-sm text-gray-500 mb-4">Nenhuma opção de personalização disponível.</p>
                 )}
 
                 <div className="flex items-center justify-between mb-6">
                     <span className="text-2xl font-bold text-gray-800">R$ {totalPrice.toFixed(2).replace('.', ',')}</span>
                     <div className="flex items-center">
-                        <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="quantity-btn border rounded-l px-3 py-1 text-lg">-</button>
-                        <span className="border-t border-b px-4 py-1 text-lg">{quantity}</span>
-                        <button onClick={() => setQuantity(q => q + 1)} className="quantity-btn border rounded-r px-3 py-1 text-lg">+</button>
+                        <button
+                            onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                            className="bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold p-3 rounded-l-md transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                            aria-label="Diminuir quantidade"
+                        >
+                            <FaMinus size={12} />
+                        </button>
+                        <span className="bg-white text-gray-700 px-4 py-2 border-t border-b border-gray-300 font-semibold text-lg">
+                            {quantity}
+                        </span>
+                        <button
+                            onClick={() => setQuantity(q => q + 1)}
+                            className="bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold p-3 rounded-r-md transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                            aria-label="Aumentar quantidade"
+                        >
+                            <FaPlus size={12} />
+                        </button>
                     </div>
                 </div>
-                <button 
+                <button
                     onClick={handleAddToCart}
                     className="w-full bg-[#2ECC71] text-white font-semibold py-3 rounded-lg hover:bg-green-600 transition duration-300"
                 >

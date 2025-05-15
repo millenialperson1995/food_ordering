@@ -1,5 +1,5 @@
 import { useAppContext } from '../context/AppContext';
-import { ProductCard } from './ProductCard';
+import { ProductCard } from './ProductCard'; // Garantir que a importação está correta se você mudou o export
 
 export function ProductList() {
     const { products, currentCategory, isLoading, error } = useAppContext();
