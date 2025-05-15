@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #FFFFFF;
+    color: #2E2E2E;
+}
+
+.primary-bg { background-color: #E71D36; }
+.primary-text { color: #E71D36; }
+.confirm-bg { background-color: #2ECC71; }
+.confirm-text { color: #2ECC71; }
+
+.category-item {
+    transition: all 0.3s ease;
+}
+
+.modal {
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.modal-content {
+    transition: transform 0.3s ease;
+}
+
+.quantity-btn {
+    transition: background-color 0.2s ease;
+}
+.quantity-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.whatsapp-btn {
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.loader {
+    border-top-color: #E71D36;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.category-menu::-webkit-scrollbar {
+    height: 4px;
+}
+.category-menu::-webkit-scrollbar-thumb {
+    background-color: #E71D36;
+    border-radius: 10px;
+}
+.category-menu::-webkit-scrollbar-track {
+    background-color: #f0f0f0;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
