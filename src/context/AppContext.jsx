@@ -7,7 +7,7 @@ export function AppProvider({ children }) {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState(["Todos"]);
     const [currentCategory, setCurrentCategory] = useState("Todos");
-    const [cart, setCart] = useState([]);
+    const [cart, setCart] = useState([]); // Inicializado como array
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isCartModalOpen, setIsCartModalOpen] = useState(false);
     const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -16,15 +16,34 @@ export function AppProvider({ children }) {
 
     // Carregar carrinho do localStorage ao iniciar
     useEffect(() => {
-        const savedCart = localStorage.getItem('deliveryAppCart');
-        if (savedCart) {
-            setCart(JSON.parse(savedCart));
+        try {
+            const savedCart = localStorage.getItem('deliveryAppCart');
+            if (savedCart) {
+                const parsedCart = JSON.parse(savedCart);
+                // Verifica se o valor parseado é de fato um array
+                if (Array.isArray(parsedCart)) {
+                    setCart(parsedCart);
+                } else {
+                    // Se não for um array (ex: null, objeto, etc.), inicia com carrinho vazio
+                    console.warn("Conteúdo do 'deliveryAppCart' no localStorage não era um array. Redefinindo para [].");
+                    setCart([]);
+                    localStorage.setItem('deliveryAppCart', JSON.stringify([])); // Garante que o localStorage seja corrigido
+                }
+            }
+        } catch (e) {
+            // Se houver erro no JSON.parse (JSON inválido), também inicia com carrinho vazio
+            console.error("Erro ao parsear 'deliveryAppCart' do localStorage:", e);
+            setCart([]);
+            localStorage.setItem('deliveryAppCart', JSON.stringify([])); // Garante que o localStorage seja corrigido
         }
     }, []);
 
     // Salvar carrinho no localStorage sempre que ele mudar
     useEffect(() => {
-        localStorage.setItem('deliveryAppCart', JSON.stringify(cart));
+        // Só salva se 'cart' for um array, para evitar corromper o localStorage
+        if (Array.isArray(cart)) {
+            localStorage.setItem('deliveryAppCart', JSON.stringify(cart));
+        }
     }, [cart]);
 
     const fetchProducts = useCallback(async () => {
@@ -36,18 +55,22 @@ export function AppProvider({ children }) {
                 throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
             }
             const data = await response.json();
-            const fetchedProducts = data.items.map(item => ({
+            const allFetchedProducts = data.items.map(item => ({
                 id: item.id,
                 name: item.title,
                 price: parseFloat(item.price) || 0,
                 image: item.img ? `${POCKETBASE_URL}/api/files/${item.collectionName}/${item.id}/${item.img}` : 'https://placehold.co/300x200/cccccc/FFFFFF?text=Sem+Imagem&font=Inter',
                 category: item.category || "Sem Categoria",
                 description: item.description || "Sem descrição disponível.",
-                options: parseProductOptions(item.options)
+                options: parseProductOptions(item.options),
+                isAvailable: item.isAvailable === undefined ? true : item.isAvailable
             }));
-            setProducts(fetchedProducts);
 
-            const uniqueCategories = new Set(fetchedProducts.map(p => p.category));
+            const availableProducts = allFetchedProducts.filter(product => product.isAvailable);
+
+            setProducts(availableProducts);
+
+            const uniqueCategories = new Set(availableProducts.map(p => p.category));
             setCategories(["Todos", ...Array.from(uniqueCategories).sort()]);
             setCurrentCategory("Todos");
 
@@ -59,13 +82,13 @@ export function AppProvider({ children }) {
         } finally {
             setIsLoading(false);
         }
-    }, []); // Adicionado useCallback
+    }, []); // A dependência parseProductOptions será adicionada abaixo se necessário, mas geralmente não é.
 
     useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);
 
-    const parseProductOptions = useCallback((optionsField) => { // Adicionado useCallback
+    const parseProductOptions = useCallback((optionsField) => {
         if (typeof optionsField === 'string') {
             try {
                 const parsed = JSON.parse(optionsField);
@@ -77,7 +100,7 @@ export function AppProvider({ children }) {
         return [];
     }, []);
 
-    const showToast = useCallback((message) => { // Adicionado useCallback
+    const showToast = useCallback((message) => {
         const toastId = `toast-${Date.now()}`;
         const toastEl = document.createElement('div');
         toastEl.id = toastId;
@@ -91,7 +114,7 @@ export function AppProvider({ children }) {
         }, 3000);
     }, []);
 
-    const addToCart = useCallback((product, quantity, selectedOptionsDetails) => { // Adicionado useCallback
+    const addToCart = useCallback((product, quantity, selectedOptionsDetails) => {
         const optionsString = selectedOptionsDetails.map(opt => `${opt.name}: ${opt.value}`).sort().join('; ');
         const cartItemId = `${product.id}-${optionsString}`;
         
@@ -99,13 +122,15 @@ export function AppProvider({ children }) {
         selectedOptionsDetails.forEach(opt => itemEffectivePrice += opt.priceChange);
 
         setCart(prevCart => {
-            const existingItemIndex = prevCart.findIndex(item => item.cartItemId === cartItemId);
+            // Garante que prevCart seja um array antes de tentar o findIndex
+            const currentCart = Array.isArray(prevCart) ? prevCart : [];
+            const existingItemIndex = currentCart.findIndex(item => item.cartItemId === cartItemId);
             if (existingItemIndex > -1) {
-                const updatedCart = [...prevCart];
+                const updatedCart = [...currentCart];
                 updatedCart[existingItemIndex].quantity += quantity;
                 return updatedCart;
             } else {
-                return [...prevCart, {
+                return [...currentCart, {
                     cartItemId,
                     id: product.id,
                     name: product.name,
@@ -117,36 +142,42 @@ export function AppProvider({ children }) {
             }
         });
         showToast(`${product.name} adicionado ao carrinho!`);
-    }, [showToast]); // Dependência showToast adicionada
+    }, [showToast]);
 
-    const updateCartItemQuantity = useCallback((cartItemId, change) => { // Adicionado useCallback
-        setCart(prevCart => prevCart.map(item =>
-            item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item
-        ).filter(item => item.quantity > 0));
+    const updateCartItemQuantity = useCallback((cartItemId, change) => {
+        setCart(prevCart => {
+            const currentCart = Array.isArray(prevCart) ? prevCart : [];
+            return currentCart.map(item =>
+                item.cartItemId === cartItemId ? { ...item, quantity: Math.max(0, item.quantity + change) } : item
+            ).filter(item => item.quantity > 0)
+        });
     }, []);
 
-    const removeCartItem = useCallback((cartItemId) => { // Adicionado useCallback
-        setCart(prevCart => prevCart.filter(item => item.cartItemId !== cartItemId));
+    const removeCartItem = useCallback((cartItemId) => {
+        setCart(prevCart => {
+            const currentCart = Array.isArray(prevCart) ? prevCart : [];
+            return currentCart.filter(item => item.cartItemId !== cartItemId)
+        });
     }, []);
 
-    const clearCart = useCallback(() => { // Adicionado useCallback
+    const clearCart = useCallback(() => {
         setCart([]);
     }, []);
 
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    // Linha 140 original, agora mais segura:
+    const cartTotal = Array.isArray(cart) ? cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
+    const cartItemCount = Array.isArray(cart) ? cart.reduce((sum, item) => sum + item.quantity, 0) : 0;
 
-    // Funções para controlar modais
-    const openProductModal = useCallback((product) => setSelectedProduct(product), []); // Adicionado useCallback
-    const closeProductModal = useCallback(() => setSelectedProduct(null), []); // Adicionado useCallback
-    const openCartModal = useCallback(() => setIsCartModalOpen(true), []); // Adicionado useCallback
-    const closeCartModal = useCallback(() => setIsCartModalOpen(false), []); // Adicionado useCallback
+    const openProductModal = useCallback((product) => setSelectedProduct(product), []);
+    const closeProductModal = useCallback(() => setSelectedProduct(null), []);
+    const openCartModal = useCallback(() => setIsCartModalOpen(true), []);
+    const closeCartModal = useCallback(() => setIsCartModalOpen(false), []);
     
-    const openCheckoutModal = useCallback(() => { // Adicionado useCallback
+    const openCheckoutModal = useCallback(() => {
         setIsCartModalOpen(false);
         setIsCheckoutModalOpen(true);
     }, []);
-    const closeCheckoutModal = useCallback(() => setIsCheckoutModalOpen(false), []); // Adicionado useCallback
+    const closeCheckoutModal = useCallback(() => setIsCheckoutModalOpen(false), []);
     
 
     return (
